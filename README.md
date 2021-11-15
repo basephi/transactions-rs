@@ -26,7 +26,7 @@ failed transactions will be printed to `stderr`.
 - Only deposits can be disputed, a withdrawal cannot (it didn't make much sense to me to have disputed withdrawals)
 - When an account is locked, withdrawals and deposits are blocked, disputes/chargebacks/and dispute resolutions can still take place but the account will remain locked. This seemed correct, since we still want to do record keeping for past transactions when an account was locked
 - We would not be tested on more than 4 digit decimal places
-- Input would be valid (i.e. client ids would fit in a u16, tx_ids in a u32, etc). If this doesn't happen my code will intentionally panic
+- If a line in the CSV file is invalid, that invalid line is just ignored and we move on to the next one
 - Negative amounts are valid inputs for withdrawals or deposits, but the transaction doesn't go through (an error is raised)
 
 ## Design
@@ -83,21 +83,21 @@ We handle these errors, some of which come from assumptions made about transacti
 ```rust
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    // When a withdraw is made but the client doesn't have enough available funds
+    /// When a withdraw is made but the client doesn't have enough available funds
     InsufficientFunds { available: Decimal },
-    // When a dispute, resolution, or chargeback was made but the impacted transaction wasn't found
+    /// When a dispute, resolution, or chargeback was made but the impacted transaction wasn't found
     TransactionNotFound,
-    // When a dispute, resolution, or chargeback was made on a transaction in the incorrect state
-    // e.g. trying to dispute a withdrawal, or resolve a transaction that wasn't disputed
+    /// When a dispute, resolution, or chargeback was made on a transaction in the incorrect state
+    /// e.g. trying to dispute a withdrawal, or resolve a transaction that wasn't disputed
     InvalidTransactionState { got: State },
-    // The account for the transaction was not found
+    /// The account for the transaction was not found
     AccountNotFound,
-    // The transaction requested an invalid amount e.g. withdrawing negative values
+    /// The transaction requested an invalid amount e.g. withdrawing negative values
     InvalidAmount,
-    // When a dispute, resolution, or chargeback references a valid transaction, but
-    // the client id doesn't match the client id of the logged transaction
+    /// When a dispute, resolution, or chargeback references a valid transaction, but
+    /// the client id doesn't match the client id of the logged transaction
     MismatchedClient,
-    // All transactions fail if the account is locked (see assumptions in README)
+    /// All transactions fail if the account is locked (see assumptions in README)
     AccountLocked,
 }
 ```

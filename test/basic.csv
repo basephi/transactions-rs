@@ -8,5 +8,7 @@ withdrawal,2,6,0.005
 this transaction type doesn't exist,2,37,1.5
 dispute,4,4,0
 dispute,3,3,0
+withdrawal,100,1.134
+blahblah,100,37.32,500324
 chargeback,3,3,0
 resolve,4,4,0

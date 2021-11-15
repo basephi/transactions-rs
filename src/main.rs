@@ -19,7 +19,14 @@ fn main() {
         .from_path(&args[1])
         .expect("a file");
     for result in rdr.deserialize() {
-        let tx: Transaction = result.expect("expected a csv of transactions");
+        let tx: Transaction = match result {
+            Ok(tx) => tx,
+            Err(e) => {
+                eprintln!("failed to parse csv line: {}", e);
+                continue;
+            }
+        };
+
         match ledger.process(tx) {
             Ok(_) => {}
             Err(err) => {
