@@ -15,6 +15,11 @@ pub enum Transaction {
     Dispute(Dispute),
     Resolve(Resolve),
     Chargeback(Chargeback),
+    Unknown {
+        client_id: u16,
+        tx_id: u32,
+        amount: Decimal,
+    },
 }
 
 /// The return value for when a transaction is processed
@@ -30,6 +35,7 @@ impl Process for Transaction {
             Transaction::Dispute(dispute) => dispute.process(ledger),
             Transaction::Resolve(resolve) => resolve.process(ledger),
             Transaction::Chargeback(chargeback) => chargeback.process(ledger),
+            Transaction::Unknown { .. } => Err(Error::UnknownTransactionType),
         }
     }
 }
@@ -227,6 +233,8 @@ pub enum Error {
     MismatchedClient,
     /// All transactions fail if the account is locked (see assumptions in README)
     AccountLocked,
+    /// The type of the transaaction was unknown, we cannot process this
+    UnknownTransactionType,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -251,6 +259,7 @@ impl Display for Error {
                 write!(f, "the client id does not match the one on the transaction")
             }
             AccountLocked => write!(f, "the account is locked"),
+            UnknownTransactionType => write!(f, "the transaction used an unknown transaction type"),
         }
     }
 }
@@ -289,6 +298,7 @@ where
     Option::<T>::deserialize(de).map(|x| x.unwrap_or_default())
 }
 
+// This is to make printing our transactions a bit nicer due to our wrapped types
 impl Display for Transaction {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -297,6 +307,7 @@ impl Display for Transaction {
             Transaction::Dispute(d) => Debug::fmt(d, f),
             Transaction::Resolve(r) => Debug::fmt(r, f),
             Transaction::Chargeback(c) => Debug::fmt(c, f),
+            Transaction::Unknown { .. } => Debug::fmt(self, f),
         }
     }
 }
@@ -309,6 +320,7 @@ impl Transaction {
             Transaction::Dispute(d) => d.client_id,
             Transaction::Resolve(r) => r.client_id,
             Transaction::Chargeback(c) => c.client_id,
+            Transaction::Unknown { client_id, .. } => client_id,
         }
     }
 }
@@ -342,6 +354,8 @@ impl<'de> Deserialize<'de> for Transaction {
             Dispute,
             Resolve,
             Chargeback,
+            #[serde(other)]
+            Unknown,
         }
 
         let i = TxIntermediate::deserialize(deserializer)?;
@@ -368,6 +382,11 @@ impl<'de> Deserialize<'de> for Transaction {
                 client_id: i.client_id,
                 tx_id: i.transaction_id,
             })),
+            TxKind::Unknown => Ok(Transaction::Unknown {
+                client_id: i.client_id,
+                tx_id: i.transaction_id,
+                amount: i.amount,
+            }),
         }
     }
 }
@@ -825,6 +844,17 @@ mod tests {
                 locked: true,
             }
         );
+    }
+
+    #[test]
+    fn test_unknown_transaction() {
+        let mut ledger = build_ledger();
+        let result = ledger.process(Transaction::Unknown {
+            client_id: 5,
+            tx_id: 10,
+            amount: dec!(1.5),
+        });
+        assert_eq!(result, Err(Error::UnknownTransactionType));
     }
 
     // Helper functions to build transactions
